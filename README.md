@@ -1,107 +1,78 @@
-# E-commerce-product-sales-forecasting
-To deploy your e-commerce sales forecasting model for a live exhibition like TechFest 2.0, you need to transition it from a static Jupyter Notebook into an interactive web application. The fastest, most professional way to do this using your existing Python skills is with Streamlit and Streamlit Community Cloud.
+# Retail Sales Forecast Studio
 
-Here is the complete, step-by-step guide to deploying your CatBoost model to the web for free.
+An end-to-end e-commerce sales forecasting project, built as an interactive
+Streamlit dashboard. It takes the raw UK Online Retail transaction log,
+cleans it, explores it, clusters products, and trains a CatBoost model to
+forecast daily product-level sales quantity — with a live prediction tool.
 
-Phase 1: Export Your Trained Model
-Right now, your CatBoost model only exists in the memory of your Jupyter Notebook. You need to save it to a file so a web server can load it.
+This turns the original analysis notebook into a presentable, clickable
+application instead of a static script.
 
-Add this code to the very end of your ecommerce_salesforecast.ipynb notebook and run it:
+## Pages
 
-Python
-# Save the trained CatBoost model to a file
-# CatBoost has a built-in save_model method which is highly optimized
-model.save_model("catboost_sales_model.cbm")
-print("Model saved successfully for deployment!")
-Phase 2: Create the Web App Interface (app.py)
-Create a new folder on your computer for your deployment files. Move your catboost_sales_model.cbm file into this new folder. Then, create a new Python script named app.py in the same folder and add the following code:
+- **Overview** — project summary and key dataset stats
+- **Data Cleaning** — funnel chart of every filtering step, with row counts
+- **Exploratory Analysis** — top products, countries, price/quantity
+  distributions, revenue over time
+- **Product Clusters** — KMeans clustering of products by price/demand/reach
+- **Forecasting Model** — trains CatBoost with a time-based train/validation
+  split, shows R², RMSE, feature importance, predicted-vs-actual plot
+- **Try a Prediction** — pick a product and date context, get a live
+  predicted quantity
 
-Python
-import streamlit as st
-import pandas as pd
-from catboost import CatBoostRegressor
-import datetime
+## Running locally
 
-# 1. Page Configuration
-st.set_page_config(page_title="E-Commerce Sales Forecast", layout="centered")
-st.title("🛒 Intelligent Product Sales Forecaster")
-st.markdown("Enter product details and temporal features to predict future sales volume.")
+```bash
+pip install -r requirements.txt
+streamlit run app.py
+```
 
-# 2. Load the CatBoost Model
-@st.cache_resource
-def load_model():
-    model = CatBoostRegressor()
-    model.load_model("catboost_sales_model.cbm")
-    return model
+Then open the local URL Streamlit prints (usually http://localhost:8501).
 
-model = load_model()
+The first load will take a little longer while the data is cleaned and the
+model trains — after that, Streamlit's caching keeps it fast.
 
-# 3. Build the User Interface (Sidebar Inputs)
-with st.sidebar:
-    st.header("Input Parameters")
-    
-    # Simulating the features your model expects
-    # Adjust these to match the exact feature columns in your notebook
-    day_of_week = st.slider("Day of Week (0=Mon, 6=Sun)", 0, 6, 2)
-    quarter = st.selectbox("Quarter", [1, 2, 3, 4])
-    month = st.slider("Month", 1, 12, 6)
-    is_weekend = st.radio("Is Weekend?", [0, 1])
-    
-    st.divider()
-    st.header("Historical Data")
-    lag_7 = st.number_input("Sales 7 Days Ago", min_value=0, value=50)
-    lag_14 = st.number_input("Sales 14 Days Ago", min_value=0, value=45)
-    rolling_mean = st.number_input("7-Day Rolling Average", min_value=0.0, value=48.5)
+## Project structure
 
-# 4. Prediction Logic
-if st.button("Generate Forecast", type="primary", use_container_width=True):
-    
-    # Create the feature array in the exact order your CatBoost model expects
-    input_data = pd.DataFrame([[
-        day_of_week, quarter, month, 2026, 150, # Example Year and DayOfYear
-        is_weekend, lag_7, lag_14, rolling_mean
-    ]], columns=[
-        'DayOfWeek', 'Quarter', 'Month', 'Year', 'DayOfYear', 
-        'IsWeekend', 'Lag_7', 'Lag_14', 'Rolling_Mean_7'
-    ])
-    
-    # Generate Prediction
-    prediction = model.predict(input_data)[0]
-    
-    # Display Result
-    st.success("Analysis Complete!")
-    st.metric(
-        label="Predicted Sales Volume", 
-        value=f"{int(max(0, prediction))} units" # Prevent negative sales
-    )
-(Note: Ensure the columns list in the input_data DataFrame exactly matches the features you trained your new_features_1 CatBoost model on).
+```
+sales_dashboard/
+├── app.py                  # Main Streamlit app (pages + UI)
+├── utils/
+│   ├── data_pipeline.py    # Cleaning + feature engineering
+│   └── model.py            # CatBoost training/prediction
+├── data/
+│   └── data.csv            # UK Online Retail dataset
+├── requirements.txt
+└── .streamlit/config.toml  # Theme
+```
 
-Phase 3: Define Dependencies
-The cloud server needs to know what libraries to install to make your Python code run. In the same folder, create a simple text file named requirements.txt and add these lines:
+## Deploying it for free (Streamlit Community Cloud)
 
-Plaintext
-streamlit
-pandas
-catboost
-Phase 4: Push to GitHub and Deploy
-Now that your local files are ready, it is time to put them on the web.
+This gets you a public link you can put in your evaluation report.
 
-Upload to GitHub:
+1. Create a free GitHub account if you don't have one, and create a new
+   **public** repository (e.g. `sales-forecast-dashboard`).
+2. Upload this entire folder's contents to that repository (drag-and-drop
+   on github.com works fine, or `git push` if you're comfortable with git).
+3. Go to **[share.streamlit.io](https://share.streamlit.io)** and sign in
+   with your GitHub account.
+4. Click **"New app"**, pick your repository, branch `main`, and set the
+   main file path to `app.py`.
+5. Click **Deploy**. The first build takes a few minutes (installing
+   catboost etc.). You'll get a link like
+   `https://your-app-name.streamlit.app` — that's your deployment link.
 
-Go to GitHub and create a new public repository.
+**Note on the data file:** `data/data.csv` is ~45 MB, which is within
+GitHub's normal file size limits, so a plain upload/push works without
+Git LFS.
 
-Upload your three files: app.py, catboost_sales_model.cbm, and requirements.txt.
+## Notes for your evaluation
 
-Deploy on Streamlit Community Cloud:
-
-Go to share.streamlit.io and log in with your GitHub account.
-
-Click Create app -> Yes, let's deploy!
-
-Select your repository, set the branch to main, and the Main file path to app.py.
-
-Click Deploy!
-
-The server will take a few minutes to build the environment. Once it finishes, you will be given a live URL. Evaluators at the TechFest 2.0 exhibition will be able to scan a QR code or type that URL into their own phones to test your working machine learning pipeline in real-time.
-
-Do you need help modifying the app.py script to include the AdditiveForceVisualizer so the web app also displays the Explainable AI charts?
+- The model is validated on a **held-out block of the most recent weeks**
+  (not a random split), so the reported R²/RMSE reflect genuine
+  forward-looking forecast accuracy rather than leakage from shuffling.
+- Product clustering exists because there are thousands of individual
+  SKUs — clustering lets the model learn shared demand patterns across
+  similar products rather than treating each one as unrelated.
+- Feature importance and the predicted-vs-actual plot are there so you can
+  explain *why* the model predicts what it does, not just that it does.
